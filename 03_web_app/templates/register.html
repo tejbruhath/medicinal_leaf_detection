@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Medicinal Leaf Classifier{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<form action="{{ url_for('add_user') }}" method="POST">
+	<div class="login-wrap">
+		<div class="login-html">
+			<input id="tab-1" type="radio" name="tab" class="sign-in" checked>
+			<label for="tab-1" class="tab">Sign Up</label>
+			<div class="login-form">
+				<div class="sign-in-htm">
+					<div class="group">
+						<label for="reg-user" class="label">Username</label>
+						<input id="reg-user" type="text" class="input" placeholder="Name" name="name" required>
+					</div>
+					<div class="group">
+						<label for="reg-email" class="label">Email Address</label>
+						<input id="reg-email" type="email" class="input" placeholder="Enter Email" name="email"
+							required>
+					</div>
+					<div class="group">
+						<label for="reg-pass" class="label">Password</label>
+						<input id="reg-pass" type="password" class="input" placeholder="Enter Password" name="password"
+							required>
+					</div>
+					<div class="group">
+						<input type="submit" class="button registerbtn" value="Sign Up" style="cursor: pointer;">
+					</div>
+					{% if error %}
+					<p style="color: red;">{{ error }}</p>
+					{% endif %}
+					<br>
+					<div class="foot-lnk">
+						<p>Already a member? <a href="/loginpage" style="color: rgba(0, 136, 255, 0.486);">Sign in</a>
+						</p>
+					</div>
+					<div class="foot-lnk">
+						<p><a href="/" style="color: rgba(0, 136, 255, 0.486);">Back to home</a></p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</form>
+{% endblock %}

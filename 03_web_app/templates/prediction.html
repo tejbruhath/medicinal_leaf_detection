@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Prediction - Medicinal Leaf Classifier{% endblock %}
+
+{% block extra_head %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<style>
+  header {
+    background-color: #4CAF50;
+    color: white;
+  }
+
+  .container {
+    background-color: white;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    font-size: 15px;
+  }
+
+  .plants h1 {
+    padding-top: 20px;
+    font-size: 27px;
+    color: #068e0a;
+    padding-left: 10px;
+  }
+
+  ul {
+    line-height: 2;
+    padding-left: 20px;
+  }
+
+  h3 {
+    color: #068e0a;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-family: monospace;
+  }
+
+  strong {
+    color: rgb(0, 45, 82);
+    font-family: monospace;
+  }
+
+  .plants {
+    display: none;
+  }
+
+  .plants.active {
+    display: block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="main">
+  <h2>Medicinal Plants &amp; Their Uses!</h2>
+  <p>Apart from medicinal use, Ayurvedic herbs can also be used for purposes like pest control, natural dyes, and
+    formulation of food items, teas and perfumes among others. If we look at various researches from across the world, a
+    sudden spurt in cases of people turning to natural herbs for treatments and usage in everyday life has gone up
+    significantly. Going back to the basics, people have realized the threat chemically treated products pose to their
+    life and are rightly so adopting healthier ways of life by including Ayurveda and its principals as the mainstay of
+    their life.</p>
+</div>
+
+<div id="side">
+  <div id="sideA">
+    <div id="sideB">
+      <div id="sideC">
+        <div id="sideD" style="overflow:hidden; text-align: center; padding-bottom: 10px;">
+          <h2>Upload your leaf Image</h2>
+          <p id="upload-instructions">
+            Please ensure the leaf is clear and centered in the image for the best results.
+            Once uploaded, the system will process the image and return a prediction.
+            <br><br>
+          </p>
+
+          <form id="upload-form" method="post" enctype="multipart/form-data">
+            <input type="file" name="imageFile" id="image-file-input"
+              style="padding-left: 4px; padding-bottom: 20px; max-width: 200px; color: bisque; cursor: pointer;"
+              required accept="image/*">
+            <br><br>
+            <button type="submit" class="btn btn-outline-light py-sm-3 px-sm-5 rounded-pill"
+              style="padding: 8px; border-radius: 5px; background-color: bisque; cursor: pointer; color: rgb(44, 44, 0);">
+              Upload &amp; Predict
+            </button>
+            <br>
+            <div id="image-preview-container"></div>
+            <br>
+          </form>
+          <p id="prediction-result"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Plant Information Sections -->
+<div id="Aloevera" class="plants Aloevera">
+  <h1><u>Aloe Vera:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Aloe Vera is a versatile plant that has been used for centuries due to its medicinal properties. It contains
+      compounds that are beneficial for skin health, digestion, and boosting the immune system.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Skin Care:</strong> Treats sunburn, acne, and skin irritation.</li>
+      <li><strong>Digestive Health:</strong> Improves digestion and relieves constipation.</li>
+      <li><strong>Wound Healing:</strong> Antimicrobial properties help heal cuts and burns.</li>
+      <li><strong>Immunity:</strong> Antioxidants strengthen the immune system.</li>
+      <li><strong>Diabetes:</strong> May help lower blood sugar levels.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Amla" class="plants Amla">
+  <h1><u>Amla:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Amla (Indian Gooseberry) is known for its rich content of Vitamin C and antioxidants.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Immunity:</strong> Packed with antioxidants and Vitamin C.</li>
+      <li><strong>Anti-inflammatory:</strong> Reduces pain and inflammation.</li>
+      <li><strong>Hair Health:</strong> Nourishes scalp and strengthens hair.</li>
+      <li><strong>Digestion:</strong> Aids digestion and relieves constipation.</li>
+      <li><strong>Blood Sugar:</strong> Helps control blood sugar levels.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Bhrami" class="plants Bhrami">
+  <h1><u>Brahmi:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Brahmi leaves from Bacopa monnieri are renowned for cognitive-enhancing properties in Ayurvedic tradition.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Cognitive Enhancement:</strong> Improves memory and concentration.</li>
+      <li><strong>Anti-Anxiety:</strong> Calming properties reduce stress.</li>
+      <li><strong>Antioxidant:</strong> Protects from oxidative stress.</li>
+      <li><strong>Anti-Inflammatory:</strong> Reduces inflammation in the body.</li>
+      <li><strong>Skin Health:</strong> Treats minor skin irritations.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Bringaraja" class="plants Bringaraja">
+  <h1><u>Bhringraj:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Bhringraj (Eclipta Alba) is known for promoting hair growth and improving liver health.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Hair Growth:</strong> Promotes growth and prevents hair loss.</li>
+      <li><strong>Liver Health:</strong> Hepatoprotective properties.</li>
+      <li><strong>Skin Health:</strong> Anti-inflammatory and antimicrobial.</li>
+      <li><strong>Respiratory:</strong> Treats asthma and bronchitis.</li>
+      <li><strong>Immunity:</strong> Strengthens the immune system.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Coriender" class="plants Coriender">
+  <h1><u>Coriander:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Coriander has rich antioxidant, anti-inflammatory, and digestive properties.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Digestion:</strong> Relieves bloating and gas.</li>
+      <li><strong>Anti-inflammatory:</strong> Treats arthritis.</li>
+      <li><strong>Blood Sugar:</strong> Manages blood sugar levels.</li>
+      <li><strong>Heart Health:</strong> Lowers cholesterol.</li>
+      <li><strong>Skin:</strong> Treats acne and eczema.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Curry" class="plants Curry">
+  <h1><u>Curry Leaves:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Curry leaves are rich in antioxidants, vitamins, and minerals.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Digestion:</strong> Stimulates digestive enzymes.</li>
+      <li><strong>Hair Growth:</strong> Nourishes scalp and reduces hair loss.</li>
+      <li><strong>Blood Sugar:</strong> Regulates blood sugar levels.</li>
+      <li><strong>Heart Health:</strong> Reduces LDL cholesterol.</li>
+      <li><strong>Immunity:</strong> Contains vitamins A, B, C, and E.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Ekka" class="plants Ekka">
+  <h1>Ekka (Calotropis gigantea): Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Ekka Leaf is a traditional medicinal plant with potent healing properties.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Wound Healing:</strong> Anti-inflammatory and antibacterial.</li>
+      <li><strong>Pain Relief:</strong> Relieves joint pain and muscle spasms.</li>
+      <li><strong>Respiratory:</strong> Soothes asthma symptoms.</li>
+      <li><strong>Skin:</strong> Treats eczema and dermatitis.</li>
+      <li><strong>Fever:</strong> Traditional remedy for malaria.</li>
+    </ul>
+    <h3>Precautions</h3>
+    <p>Contains toxic compounds — use only under healthcare guidance.</p>
+  </div>
+</div>
+
+<div id="Hibiscus" class="plants Hibiscus">
+  <h1><u>Hibiscus:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Hibiscus leaves are rich in antioxidants, vitamins, and minerals.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Anti-inflammatory:</strong> Reduces swelling and pain.</li>
+      <li><strong>Hair Health:</strong> Promotes growth, prevents dandruff.</li>
+      <li><strong>Digestion:</strong> Aids digestion and relieves constipation.</li>
+      <li><strong>Blood Pressure:</strong> Regulates blood pressure.</li>
+      <li><strong>Skin:</strong> Treats acne and oily skin.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Lemon" class="plants Lemon">
+  <h1><u>Lemon Leaves:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Lemon leaves possess numerous medicinal properties and are rich in antioxidants.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Digestion:</strong> Aids digestion, relieves bloating.</li>
+      <li><strong>Anti-inflammatory:</strong> Reduces inflammation.</li>
+      <li><strong>Immunity:</strong> Rich in Vitamin C.</li>
+      <li><strong>Respiratory:</strong> Relieves coughs and colds.</li>
+      <li><strong>Skin:</strong> Antibacterial properties treat infections.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Mint" class="plants Mint">
+  <h1><u>Mint Leaves:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Mint leaves are rich in antioxidants and essential oils.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Digestion:</strong> Alleviates bloating, gas, indigestion.</li>
+      <li><strong>Headaches:</strong> Relieves headaches and migraines.</li>
+      <li><strong>Respiratory:</strong> Clears nasal passages.</li>
+      <li><strong>Skin:</strong> Antibacterial, soothes irritation.</li>
+      <li><strong>Immunity:</strong> Rich in vitamins and antioxidants.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Neem" class="plants Neem">
+  <h1><u>Neem Leaves:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Neem leaves have extensive medicinal properties used for centuries.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Antimicrobial:</strong> Fights bacteria, viruses, fungi.</li>
+      <li><strong>Skin:</strong> Treats acne, eczema, psoriasis.</li>
+      <li><strong>Blood Purification:</strong> Eliminates toxins.</li>
+      <li><strong>Digestion:</strong> Alleviates constipation.</li>
+      <li><strong>Immunity:</strong> High antioxidant content.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Papaya" class="plants Papaya">
+  <h1><u>Papaya Leaves:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Papaya leaves are rich in nutrients with numerous medicinal properties.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Digestion:</strong> Contains papain enzyme.</li>
+      <li><strong>Immunity:</strong> Rich in vitamins and antioxidants.</li>
+      <li><strong>Anti-inflammatory:</strong> Reduces inflammation and pain.</li>
+      <li><strong>Blood Sugar:</strong> May lower blood sugar levels.</li>
+      <li><strong>Dengue:</strong> Increases platelet count.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="Tulsi" class="plants Tulsi">
+  <h1><u>Tulsi Leaves:</u> Medical Uses and Treatments</h1>
+  <div class="container">
+    <p>Tulsi (Holy Basil) is revered in traditional medicine for centuries.</p>
+    <h3>Medical Uses</h3>
+    <ul>
+      <li><strong>Immunity:</strong> Boosts immune system.</li>
+      <li><strong>Stress Relief:</strong> Adaptogenic, reduces anxiety.</li>
+      <li><strong>Respiratory:</strong> Relieves coughs, colds, asthma.</li>
+      <li><strong>Anti-inflammatory:</strong> Reduces body inflammation.</li>
+      <li><strong>Digestion:</strong> Aids digestion, relieves gas.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}

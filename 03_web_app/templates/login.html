@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Medicinal Leaf Classifier{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="auth-container">
+    <div class="login-container">
+        <div class="circle circle-one"></div>
+        <div class="form-container">
+            <h1 class="opacity" style="color: green;">LOGIN</h1>
+            <form action="/login" method="post">
+                <input type="text" placeholder="USERNAME" name="username" value="{{ username }}" required>
+                <input type="password" placeholder="PASSWORD" name="password" value="{{ password }}" required>
+                <button class="opacity" type="submit">SUBMIT</button>
+            </form>
+            {% if error %}
+            <p style="color: red;">{{ error }}</p>
+            {% endif %}
+            <div class="register-forget opacity">
+                <p>New user? <a href="/register" style="color: rgb(14, 0, 85);">Register here</a></p>
+            </div>
+            <div class="register-forget opacity">
+                <p><a href="/" style="color: rgb(14, 0, 85);">Back to home</a></p>
+            </div>
+        </div>
+        <div class="circle circle-two"></div>
+    </div>
+</section>
+{% endblock %}

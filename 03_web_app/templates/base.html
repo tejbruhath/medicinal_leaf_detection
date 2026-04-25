@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Medicinal Leaf Classifier{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div id="header">
+        <h1>Medicinal Leaf Classifier</h1>
+        <nav id="menu">
+            <ul>
+                {% if session.get('logged_in') %}
+                <li><a href="#"><span>{{ session.get('user_name') }}</span></a></li>
+                <li><a href="/" {% if request.endpoint == 'index' %}class="hilite"{% endif %}><span>Home</span></a></li>
+                <li><a href="/prediction" {% if request.endpoint == 'prediction_page' %}class="hilite"{% endif %}><span>Prediction</span></a></li>
+                <li><a href="/logout"><span>Logout</span></a></li>
+                {% else %}
+                <li><a href="/" {% if request.endpoint == 'index' %}class="hilite"{% endif %}><span>Home</span></a></li>
+                <li><a href="/loginpage"><span>Login</span></a></li>
+                <li><a href="/register"><span>Register</span></a></li>
+                <li><a href="/prediction"><span>Prediction</span></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+
+    <div id="wrapper">
+        <div id="content">
+            <div id="contentA">
+                <div id="contentB">
+                    <div id="contentC">
+                        {% block content %}{% endblock %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="footer">
+            <p>&copy; 2025 Medicinal Leaf Classifier. All Rights Reserved.</p>
+        </div>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
