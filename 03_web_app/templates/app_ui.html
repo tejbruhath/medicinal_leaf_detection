@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medicinal Leaf Classifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&display=swap"
+    rel="stylesheet">
+
+
+
+  <style>
+    :root {
+      --bg: #080e09;
+      --bg2: #0d1a0e;
+      --glass: rgba(13, 28, 15, 0.72);
+      --glass2: rgba(20, 42, 22, 0.55);
+      --border: rgba(100, 200, 120, 0.18);
+      --border-bright: rgba(120, 220, 140, 0.38);
+      --green: oklch(0.72 0.18 152);
+      --green-dim: oklch(0.55 0.14 152);
+      --green-glow: oklch(0.72 0.18 152 / 0.25);
+      --gold: oklch(0.80 0.10 82);
+      --gold-dim: oklch(0.65 0.08 82);
+      --text: oklch(0.93 0.02 140);
+      --text-dim: oklch(0.68 0.03 150);
+      --text-muted: oklch(0.50 0.04 150);
+      --red-warn: oklch(0.70 0.18 28);
+      --radius-card: 20px;
+      --radius-input: 12px;
+      --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ─── BACKGROUND ────────────────────────────────── */
+    .bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .bg-mesh {
+      position: absolute;
+      inset: -50%;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, oklch(0.20 0.08 152 / 0.5) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 80% 80%, oklch(0.18 0.06 160 / 0.4) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 60% 10%, oklch(0.22 0.05 82 / 0.2) 0%, transparent 55%),
+        var(--bg);
+      animation: meshShift 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes meshShift {
+      0% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      100% {
+        transform: translate(3%, 2%) scale(1.04);
+      }
+    }
+
+    /* Floating leaf SVGs */
+    .leaf-float {
+      position: absolute;
+      opacity: 0;
+      animation: leafDrift linear infinite;
+    }
+
+    @keyframes leafDrift {
+      0% {
+        opacity: 0;
+        transform: translateY(110vh) rotate(0deg) scale(0.6);
+      }
+
+      8% {
+        opacity: 0.12;
+      }
+
+      90% {
+        opacity: 0.08;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(-10vh) rotate(360deg) scale(1);
+      }
+    }
+
+    /* Grain overlay */
+    .bg-grain {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      opacity: 0.6;
+    }
+
+    /* ─── VIEWS ─────────────────────────────────────── */
+    .view {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: none;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .view.active {
+      display: flex;
+    }
+
+    .view.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── GLASS CARD ─────────────────────────────────── */
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+        0 20px 60px rgba(0, 0, 0, 0.5),
+        0 0 40px var(--green-glow);
+      transition: var(--transition);
+    }
+
+    .glass:hover {
+      border-color: var(--border-bright);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 24px 70px rgba(0, 0, 0, 0.55),
+        0 0 60px var(--green-glow);
+    }
+
+    /* ─── TYPOGRAPHY ─────────────────────────────────── */
+    .display {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .display-xl {
+      font-size: clamp(2.8rem, 7vw, 5.5rem);
+    }
+
+    .display-lg {
+      font-size: clamp(2rem, 4vw, 3.2rem);
+    }
+
+    .display-md {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+    }
+
+    .label {
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .body-sm {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    /* ─── BUTTONS ────────────────────────────────────── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(135deg, oklch(0.42 0.16 152), oklch(0.35 0.14 160));
+      color: var(--text);
+      border: 1px solid var(--border-bright);
+      border-radius: 100px;
+      padding: 14px 36px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+      box-shadow: 0 4px 20px oklch(0.42 0.16 152 / 0.35);
+      letter-spacing: 0.02em;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, oklch(0.55 0.20 152), oklch(0.45 0.17 160));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .btn-primary:hover::before {
+      opacity: 1;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px oklch(0.42 0.16 152 / 0.5);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-primary svg {
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 12px 28px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--border-bright);
+      color: var(--text);
+      background: var(--glass2);
+    }
+
+    /* ─── INPUTS ─────────────────────────────────────── */
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap label {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      background: rgba(10, 22, 12, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-input);
+      padding: 14px 18px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.92rem;
+      outline: none;
+      transition: var(--transition);
+      caret-color: var(--green);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    input:focus {
+      border-color: var(--green-dim);
+      box-shadow: 0 0 0 3px oklch(0.72 0.18 152 / 0.12), 0 0 20px oklch(0.72 0.18 152 / 0.08);
+      background: rgba(12, 28, 14, 0.8);
+    }
+
+    /* ─── SPINNER ─────────────────────────────────────── */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ─── AUTH TOGGLE ─────────────────────────────────── */
+    .auth-tab {
+      background: none;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      padding: 10px 20px;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .auth-tab.active {
+      background: var(--glass2);
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* ─── DRAG ZONE ───────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+      background: rgba(10, 22, 12, 0.35);
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--green-dim);
+      background: rgba(15, 35, 18, 0.55);
+      box-shadow: 0 0 40px var(--green-glow);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ─── PREVIEW IMAGE ───────────────────────────────── */
+    .img-preview-wrap {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .img-preview-wrap img {
+      width: 100%;
+      display: block;
+      max-height: 280px;
+      object-fit: cover;
+    }
+
+    .img-badge {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    /* ─── WARNING BADGE ───────────────────────────────── */
+    .warn-badge {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: oklch(0.15 0.06 28 / 0.5);
+      border: 1px solid oklch(0.70 0.18 28 / 0.4);
+      border-radius: 14px;
+      padding: 14px 18px;
+      backdrop-filter: blur(12px);
+      animation: fadeSlideDown 0.4s ease;
+    }
+
+    @keyframes fadeSlideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .warn-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      margin-left: auto;
+      flex-shrink: 0;
+      padding: 0 4px;
+      transition: color 0.2s;
+    }
+
+    .warn-close:hover {
+      color: var(--text);
+    }
+
+    /* ─── INFO CARDS ──────────────────────────────────── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+    }
+
+    .info-card {
+      background: var(--glass2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .info-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--card-accent, var(--green)), transparent);
+      opacity: 0.7;
+    }
+
+    .info-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .info-card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+    }
+
+    /* ─── DIVIDER ─────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-bright), transparent);
+      margin: 8px 0;
+    }
+
+    /* ─── NAV ─────────────────────────────────────────── */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(8, 14, 9, 0.7);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 10px var(--green);
+      }
+
+      50% {
+        opacity: 0.5;
+        box-shadow: 0 0 4px var(--green);
+      }
+    }
+
+    /* ─── HERO ────────────────────────────────────────── */
+    #view-auth {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      min-height: 100vh;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 16px;
+      margin-bottom: 28px;
+      background: var(--glass2);
+    }
+
+    /* ─── VIEW DASHBOARD ──────────────────────────────── */
+    #view-dashboard {
+      flex-direction: column;
+    }
+
+    .dash-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    .dash-inner {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* ─── VIEW RESULTS ────────────────────────────────── */
+    #view-results {
+      flex-direction: column;
+    }
+
+    .results-content {
+      flex: 1;
+      padding: 40px 24px;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ─── CONFIDENCE BAR ──────────────────────────────── */
+    .conf-track {
+      height: 4px;
+      border-radius: 100px;
+      background: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+
+    .conf-fill {
+      height: 100%;
+      border-radius: 100px;
+      background: linear-gradient(90deg, var(--green-dim), var(--green));
+      box-shadow: 0 0 8px var(--green-glow);
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ─── SCROLLBAR ───────────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-bright);
+      border-radius: 10px;
+    }
+
+    /* ─── RESPONSIVE ──────────────────────────────────── */
+    @media (max-width: 600px) {
+      .nav {
+        padding: 16px 18px;
+      }
+
+      #view-auth {
+        padding: 32px 16px;
+      }
+
+      .results-content {
+        padding: 28px 16px;
+      }
+
+      .btn-primary {
+        padding: 13px 28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- BACKGROUND -->
+  <div class="bg-canvas">
+    <div class="bg-mesh"></div>
+    <!-- Floating leaves -->
+    <svg class="leaf-float" style="left:8%;animation-duration:22s;animation-delay:0s;" width="36" height="50"
+      viewBox="0 0 36 50">
+      <path d="M18 48 C18 48 2 32 2 18 C2 8 10 2 18 2 C26 2 34 8 34 18 C34 32 18 48 18 48Z" fill="none"
+        stroke="rgba(100,200,120,0.3)" stroke-width="1.5"></path>
+      <line x1="18" y1="2" x2="18" y2="48" stroke="rgba(100,200,120,0.2)" stroke-width="1"></line>
+    </svg>
+    <svg class="leaf-float" style="left:25%;animation-duration:28s;animation-delay:5s;" width="24" height="34"
+      viewBox="0 0 24 34">
+      <path d="M12 32 C12 32 1 22 1 12 C1 5 6 1 12 1 C18 1 23 5 23 12 C23 22 12 32 12 32Z" fill="none"
+        stroke="rgba(120,220,140,0.2)" stroke-width="1.2"></path>
+    </svg>
+    <svg class="leaf-float" style="left:55%;animation-duration:20s;animation-delay:9s;" width="44" height="62"
+      viewBox="0 0 44 62">
+      <path d="M22 60 C22 60 2 40 2 22 C2 10 11 2 22 2 C33 2 42 10 42 22 C42 40 22 60 22 60Z" fill="none"
+        stroke="rgba(100,200,120,0.18)" stroke-width="1.5"></path>
+      <line x1="22" y1="2" x2="22" y2="60" stroke="rgba(100,200,120,0.12)" stroke-width="1"></line>
+      <line x1="22" y1="22" x2="34" y2="30" stroke="rgba(100,200,120,0.1)" stroke-width="1"></line>
+      <line x1="22" y1="36" x2="10" y2="44" stroke="rgba(100,200,120,0.1)" stroke-width="1"></line>
+    </svg>
+    <svg class="leaf-float" style="left:78%;animation-duration:25s;animation-delay:3s;" width="28" height="40"
+      viewBox="0 0 28 40">
+      <path d="M14 38 C14 38 1 26 1 14 C1 6 7 1 14 1 C21 1 27 6 27 14 C27 26 14 38 14 38Z" fill="none"
+        stroke="rgba(140,210,100,0.22)" stroke-width="1.2"></path>
+    </svg>
+    <svg class="leaf-float" style="left:90%;animation-duration:18s;animation-delay:12s;" width="20" height="28"
+      viewBox="0 0 20 28">
+      <path d="M10 26 C10 26 1 18 1 10 C1 4 5 1 10 1 C15 1 19 4 19 10 C19 18 10 26 10 26Z" fill="none"
+        stroke="rgba(100,200,120,0.18)" stroke-width="1"></path>
+    </svg>
+  </div>
+  <div class="bg-grain"></div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- VIEW 1: AUTH                                            -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div id="view-auth" class="view">
+    <div style="width:100%;max-width:480px;">
+
+      <!-- Hero text -->
+      <div style="text-align:center;margin-bottom:48px;">
+        <div class="hero-eyebrow">
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <circle cx="6" cy="6" r="5" fill="none" stroke="oklch(0.72 0.18 152)" stroke-width="1.5"></circle>
+            <circle cx="6" cy="6" r="2" fill="oklch(0.72 0.18 152)"></circle>
+          </svg>
+          <span class="label" style="font-size:0.65rem;">AI-Powered Botanical Analysis</span>
+        </div>
+        <h1 class="display display-xl" style="margin-bottom:18px;">
+          Medicinal<br>
+          <span style="color:var(--green);">Leaf</span> Classifier
+        </h1>
+        <p class="body-sm" style="max-width:340px;margin:0 auto;font-size:0.92rem;">
+          Bridging the wisdom of traditional herbal knowledge with the precision of modern machine intelligence.
+        </p>
+      </div>
+
+      <!-- Auth Card -->
+      <div class="glass" style="padding:36px 32px;">
+        <!-- Tabs -->
+        <div style="display:flex;background:rgba(0,0,0,0.25);border-radius:100px;padding:4px;margin-bottom:32px;">
+          <button class="auth-tab active" id="tab-login" onclick="switchTab('login')"><span>Sign In</span></button>
+          <button class="auth-tab" id="tab-register" onclick="switchTab('register')"><span>Register</span></button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="form-login" onsubmit="handleLogin(event)">
+          <div style="display:flex;flex-direction:column;gap:20px;">
+            <div class="input-wrap">
+              <label for="login-username">Username</label>
+              <input type="text" id="login-username" placeholder="your_username" autocomplete="username">
+            </div>
+            <div class="input-wrap">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-primary" id="btn-login" style="width:100%;margin-top:4px;">
+              <span id="btn-login-text">Continue</span>
+              <div class="spinner" id="spinner-login" style="display:none;"></div>
+              <svg id="icon-login" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              </svg>
+            </button>
+          </div>
+          <p class="body-sm" style="text-align:center;margin-top:20px;font-size:0.8rem;">
+            No account? <button type="button" onclick="switchTab('register')"
+              style="background:none;border:none;color:var(--green);cursor:pointer;font-family:inherit;font-size:inherit;">Create
+              one →</button>
+          </p>
+        </form>
+
+        <!-- Register Form -->
+        <form id="form-register" style="display:none;" onsubmit="handleRegister(event)">
+          <div style="display:flex;flex-direction:column;gap:20px;">
+            <div class="input-wrap">
+              <label for="register-name">Full Name</label>
+              <input type="text" id="register-name" placeholder="Aarav Sharma">
+            </div>
+            <div class="input-wrap">
+              <label for="register-email">Email Address</label>
+              <input type="email" id="register-email" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="input-wrap">
+              <label for="register-password">Password</label>
+              <input type="password" id="register-password" placeholder="Min. 8 characters" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn-primary" id="btn-register" style="width:100%;margin-top:4px;">
+              <span id="btn-register-text">Create Account</span>
+              <div class="spinner" id="spinner-register" style="display:none;"></div>
+              <svg id="icon-register" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              </svg>
+            </button>
+          </div>
+          <p class="body-sm" style="text-align:center;margin-top:20px;font-size:0.8rem;">
+            Already have an account? <button type="button" onclick="switchTab('login')"
+              style="background:none;border:none;color:var(--green);cursor:pointer;font-family:inherit;font-size:inherit;">Sign
+              in →</button>
+          </p>
+        </form>
+      </div>
+
+      <!-- Footer note -->
+      <p class="body-sm" style="text-align:center;margin-top:24px;font-size:0.75rem;color:var(--text-muted);">
+        Your data is processed locally. We respect your privacy.
+      </p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- VIEW 2: DASHBOARD / UPLOAD                              -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div id="view-dashboard" class="view" style="flex-direction:column;">
+    <!-- Nav -->
+    <nav class="nav">
+      <div class="nav-logo">
+        <div class="nav-dot"></div>
+        Medicinal Leaf Classifier
+      </div>
+      <button class="btn-ghost" onclick="logout()" style="padding:8px 18px;font-size:0.8rem;">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M5 7h7M9 4l3 3-3 3M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3" stroke="currentColor" stroke-width="1.4"
+            stroke-linecap="round"></path>
+        </svg>
+        Sign out
+      </button>
+    </nav>
+
+    <div class="dash-content">
+      <div class="dash-inner">
+
+        <!-- Header -->
+        <div style="margin-bottom:36px;">
+          <p class="label" style="margin-bottom:10px;">Step 1 of 1</p>
+          <h2 class="display display-lg" style="margin-bottom:12px;">Upload a Leaf Image</h2>
+          <p class="body-sm">Photograph the leaf clearly against a light background for best results. Supported: JPG,
+            PNG, WEBP.</p>
+        </div>
+
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+          ondrop="handleDrop(event)">
+          <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
+          <div id="drop-default">
+            <!-- Leaf icon -->
+            <svg width="52" height="68" viewBox="0 0 52 68" style="margin:0 auto 20px;" opacity="0.5">
+              <path d="M26 66 C26 66 3 45 3 26 C3 12 13 3 26 3 C39 3 49 12 49 26 C49 45 26 66 26 66Z" fill="none"
+                stroke="var(--green)" stroke-width="1.8"></path>
+              <line x1="26" y1="3" x2="26" y2="66" stroke="var(--green)" stroke-width="1.2"></line>
+              <line x1="26" y1="22" x2="38" y2="30" stroke="var(--green)" stroke-width="1"></line>
+              <line x1="26" y1="36" x2="14" y2="44" stroke="var(--green)" stroke-width="1"></line>
+              <line x1="26" y1="50" x2="36" y2="58" stroke="var(--green)" stroke-width="0.8"></line>
+            </svg>
+            <p style="font-size:1rem;font-weight:500;color:var(--text);margin-bottom:6px;">Drop your leaf image here</p>
+            <p class="body-sm" style="font-size:0.82rem;">or <span
+                style="color:var(--green);text-decoration:underline;cursor:pointer;">browse files</span></p>
+          </div>
+          <div id="drop-preview" style="display:none;">
+            <div class="img-preview-wrap">
+              <img id="upload-preview-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                alt="Leaf preview">
+              <div class="img-badge">Ready to analyze</div>
+            </div>
+            <p style="margin-top:14px;font-size:0.82rem;color:var(--text-muted);" id="upload-filename"></p>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div style="margin-top:28px;display:flex;flex-direction:column;gap:12px;align-items:center;">
+          <button class="btn-primary" id="btn-predict" onclick="handlePredict()" disabled=""
+            style="opacity:0.45;cursor:not-allowed;min-width:220px;">
+            <span id="btn-predict-text">Select an image first</span>
+            <div class="spinner" id="spinner-predict" style="display:none;"></div>
+            <svg id="icon-predict" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2l5.5 3.18v6.36L8 14 2.5 11.54V5.18L8 2z" stroke="currentColor" stroke-width="1.4"
+                fill="none"></path>
+              <circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+            </svg>
+          </button>
+          <p class="body-sm" style="font-size:0.75rem;">Analysis typically completes in 2–4 seconds</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- VIEW 3: RESULTS                                         -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div id="view-results" class="view" style="flex-direction:column;">
+    <!-- Nav -->
+    <nav class="nav">
+      <div class="nav-logo">
+        <div class="nav-dot"></div>
+        Medicinal Leaf Classifier
+      </div>
+      <button class="btn-ghost" onclick="logout()" style="padding:8px 18px;font-size:0.8rem;">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M5 7h7M9 4l3 3-3 3M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3" stroke="currentColor" stroke-width="1.4"
+            stroke-linecap="round"></path>
+        </svg>
+        Sign out
+      </button>
+    </nav>
+
+    <div class="results-content">
+
+      <!-- Warning badge (shown conditionally) -->
+      <div class="warn-badge" id="warn-low-confidence" style="display:none;margin-bottom:24px;">
+        <svg width="18" height="18" viewBox="0 0 18 18" flex-shrink="0" style="flex-shrink:0;margin-top:1px;"
+          fill="none">
+          <path d="M9 2L16.5 15H1.5L9 2Z" stroke="var(--red-warn)" stroke-width="1.5"></path>
+          <line x1="9" y1="7" x2="9" y2="10.5" stroke="var(--red-warn)" stroke-width="1.5" stroke-linecap="round">
+          </line>
+          <circle cx="9" cy="13" r="0.75" fill="var(--red-warn)"></circle>
+        </svg>
+        <p style="font-size:0.85rem;color:oklch(0.85 0.1 28);line-height:1.5;">
+          <strong>Low confidence detected.</strong> Confidence score is very low — please provide a better quality leaf
+          image for accurate results.
+        </p>
+        <button class="warn-close"
+          onclick="document.getElementById('warn-low-confidence').style.display='none'">✕</button>
+      </div>
+
+      <!-- Two column layout on desktop -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-bottom:32px;" id="results-top-grid">
+        <!-- Image -->
+        <div>
+          <p class="label" style="margin-bottom:12px;">Analyzed Sample</p>
+          <div class="img-preview-wrap">
+            <img id="result-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Analyzed leaf"
+              style="max-height:320px;">
+            <div class="img-badge" id="result-confidence-badge">98.4% confidence</div>
+          </div>
+          <!-- Confidence bar -->
+          <div style="margin-top:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span class="body-sm" style="font-size:0.75rem;">Confidence</span>
+              <span style="font-size:0.75rem;color:var(--green);font-weight:500;" id="conf-pct">98.4%</span>
+            </div>
+            <div class="conf-track">
+              <div class="conf-fill" id="conf-fill" style="width:0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plant identity -->
+        <div style="display:flex;flex-direction:column;justify-content:center;">
+          <p class="label" style="margin-bottom:14px;">Identified Specimen</p>
+          <h2 class="display" style="font-size:clamp(2.4rem,5vw,4rem);color:var(--text);margin-bottom:4px;"
+            id="plant-name">Tulsi</h2>
+          <p style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.2rem;color:var(--gold);margin-bottom:20px;"
+            id="plant-botanical">Ocimum tenuiflorum</p>
+          <div class="divider" style="margin-bottom:20px;"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;" id="plant-tags">
+            <span
+              style="border:1px solid var(--border);border-radius:100px;padding:4px 14px;font-size:0.75rem;color:var(--green);">Adaptogen</span>
+            <span
+              style="border:1px solid var(--border);border-radius:100px;padding:4px 14px;font-size:0.75rem;color:var(--text-dim);">Anti-inflammatory</span>
+            <span
+              style="border:1px solid var(--border);border-radius:100px;padding:4px 14px;font-size:0.75rem;color:var(--text-dim);">Antioxidant</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Cards -->
+      <p class="label" style="margin-bottom:16px;">Medicinal Profile</p>
+      <div class="info-grid" style="margin-bottom:36px;">
+
+        <div class="info-card" style="--card-accent:var(--green);">
+          <div class="info-card-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 18C10 18 2 12 2 7a8 8 0 0116 0c0 5-8 11-8 11z" stroke="var(--green)" stroke-width="1.4">
+              </path>
+              <circle cx="10" cy="7" r="2" fill="var(--green)" opacity="0.6"></circle>
+            </svg>
+          </div>
+          <p class="label" style="margin-bottom:10px;">Traditional Uses</p>
+          <p class="body-sm" id="plant-uses">
+            Sacred in Ayurveda for over 3,000 years. Used to treat respiratory ailments, fever, and digestive disorders.
+            Revered as an adaptogen to help the body manage stress. Commonly brewed as herbal tea for immunity and
+            mental clarity.
+          </p>
+        </div>
+
+        <div class="info-card" style="--card-accent:var(--red-warn);">
+          <div class="info-card-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2L18 16H2L10 2Z" stroke="oklch(0.70 0.18 28)" stroke-width="1.4"></path>
+              <line x1="10" y1="8" x2="10" y2="12" stroke="oklch(0.70 0.18 28)" stroke-width="1.4"
+                stroke-linecap="round"></line>
+              <circle cx="10" cy="14.5" r="0.75" fill="oklch(0.70 0.18 28)"></circle>
+            </svg>
+          </div>
+          <p class="label" style="margin-bottom:10px;color:oklch(0.70 0.18 28);">Side Effects</p>
+          <p class="body-sm" id="plant-side-effects">
+            May thin the blood — avoid prior to surgery. High doses can lower blood sugar; diabetics should monitor
+            closely. Pregnant women should consult a physician before consumption. Rare allergic reactions reported in
+            sensitive individuals.
+          </p>
+        </div>
+
+        <div class="info-card" style="--card-accent:var(--gold);">
+          <div class="info-card-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2v16M5 6c0 0 2 2 5 2s5-2 5-2M5 12c0 0 2 2 5 2s5-2 5-2" stroke="var(--gold)"
+                stroke-width="1.4" stroke-linecap="round"></path>
+            </svg>
+          </div>
+          <p class="label" style="margin-bottom:10px;color:var(--gold);">Home Remedies</p>
+          <p class="body-sm" id="plant-remedies">
+            <strong style="color:var(--text-dim);">Cold &amp; cough:</strong> Boil 8–10 leaves in water with ginger and
+            honey, drink warm. <br><br>
+            <strong style="color:var(--text-dim);">Headache:</strong> Apply a paste of crushed leaves to the forehead.
+            <br><br>
+            <strong style="color:var(--text-dim);">Skin clarity:</strong> Use leaf-infused water as a daily face rinse.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Reset button -->
+      <div style="display:flex;justify-content:center;padding-bottom:48px;">
+        <button class="btn-ghost" onclick="goToDashboard()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M13 8H3M7 4l-4 4 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
+          </svg>
+          Analyze Another Leaf
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── VIEW MANAGEMENT ──────────────────────────────────────
+    let currentView = null;
+
+    function showView(id) {
+      if (currentView) {
+        const prev = document.getElementById(currentView);
+        prev.classList.remove('visible');
+        setTimeout(() => { prev.style.display = 'none'; prev.classList.remove('active'); }, 400);
+      }
+      setTimeout(() => {
+        const next = document.getElementById(id);
+        next.classList.add('active');
+        next.style.display = next.style.display || 'flex';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => { next.classList.add('visible'); });
+        });
+        currentView = id;
+      }, currentView ? 300 : 0);
+    }
+
+    // ─── AUTH TABS ─────────────────────────────────────────────
+    function switchTab(tab) {
+      document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    }
+
+    // ─── LOGIN ─────────────────────────────────────────────────
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      const txt = document.getElementById('btn-login-text');
+      const ico = document.getElementById('icon-login');
+      const spin = document.getElementById('spinner-login');
+      btn.disabled = true; txt.textContent = 'Authenticating…';
+      ico.style.display = 'none'; spin.style.display = 'block';
+      setTimeout(() => { showView('view-dashboard'); resetLoginBtn(); }, 1500);
+    }
+    function resetLoginBtn() {
+      const btn = document.getElementById('btn-login');
+      const txt = document.getElementById('btn-login-text');
+      const ico = document.getElementById('icon-login');
+      const spin = document.getElementById('spinner-login');
+      btn.disabled = false; txt.textContent = 'Continue';
+      ico.style.display = ''; spin.style.display = 'none';
+    }
+
+    // ─── REGISTER ──────────────────────────────────────────────
+    function handleRegister(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-register');
+      const txt = document.getElementById('btn-register-text');
+      const ico = document.getElementById('icon-register');
+      const spin = document.getElementById('spinner-register');
+      btn.disabled = true; txt.textContent = 'Creating account…';
+      ico.style.display = 'none'; spin.style.display = 'block';
+      setTimeout(() => { showView('view-dashboard'); resetRegisterBtn(); }, 1800);
+    }
+    function resetRegisterBtn() {
+      const btn = document.getElementById('btn-register');
+      const txt = document.getElementById('btn-register-text');
+      const ico = document.getElementById('icon-register');
+      const spin = document.getElementById('spinner-register');
+      btn.disabled = false; txt.textContent = 'Create Account';
+      ico.style.display = ''; spin.style.display = 'none';
+    }
+
+    // ─── LOGOUT ────────────────────────────────────────────────
+    function logout() {
+      selectedFile = null;
+      document.getElementById('drop-preview').style.display = 'none';
+      document.getElementById('drop-default').style.display = 'block';
+      enablePredict(false);
+      showView('view-auth');
+    }
+
+    // ─── FILE HANDLING ─────────────────────────────────────────
+    let selectedFile = null;
+
+    function enablePredict(yes) {
+      const btn = document.getElementById('btn-predict');
+      const txt = document.getElementById('btn-predict-text');
+      if (yes) {
+        btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+        txt.textContent = 'Predict & Analyze';
+      } else {
+        btn.disabled = true; btn.style.opacity = '0.45'; btn.style.cursor = 'not-allowed';
+        txt.textContent = 'Select an image first';
+      }
+    }
+
+    function showUploadPreview(file) {
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        document.getElementById('upload-preview-img').src = e.target.result;
+        document.getElementById('result-img').src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      document.getElementById('upload-filename').textContent = file.name;
+      document.getElementById('drop-default').style.display = 'none';
+      document.getElementById('drop-preview').style.display = 'block';
+      enablePredict(true);
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files[0]) showUploadPreview(e.target.files[0]);
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.add('dragover');
+    }
+    function handleDragLeave(e) {
+      document.getElementById('drop-zone').classList.remove('dragover');
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) showUploadPreview(e.dataTransfer.files[0]);
+    }
+
+    // ─── PREDICT ───────────────────────────────────────────────
+    function handlePredict() {
+      if (!selectedFile) return;
+      const btn = document.getElementById('btn-predict');
+      const txt = document.getElementById('btn-predict-text');
+      const ico = document.getElementById('icon-predict');
+      const spin = document.getElementById('spinner-predict');
+      btn.disabled = true; txt.textContent = 'Analyzing…';
+      ico.style.display = 'none'; spin.style.display = 'block';
+
+      setTimeout(() => {
+        ico.style.display = ''; spin.style.display = 'none';
+        showResults();
+      }, 2200);
+    }
+
+    // ─── SHOW RESULTS ──────────────────────────────────────────
+    // These IDs are placeholders for your backend to populate:
+    //   id="plant-name"          → predicted plant common name
+    //   id="plant-botanical"     → botanical / scientific name
+    //   id="plant-uses"          → traditional uses text
+    //   id="plant-side-effects"  → side effects text
+    //   id="plant-remedies"      → home remedies text
+    //   id="conf-pct"            → confidence percentage string
+    //   id="conf-fill"           → set style.width to percentage
+    //   id="result-confidence-badge" → badge text
+    //   id="warn-low-confidence" → show if confidence < threshold
+    //   id="plant-tags"          → categories/tags
+
+    const DEMO_CONFIDENCE = 98.4; // swap with API value
+
+    function showResults() {
+      const conf = DEMO_CONFIDENCE;
+      const pct = conf.toFixed(1) + '%';
+      document.getElementById('conf-pct').textContent = pct;
+      document.getElementById('result-confidence-badge').textContent = pct + ' confidence';
+      document.getElementById('warn-low-confidence').style.display = conf < 60 ? 'flex' : 'none';
+
+      showView('view-results');
+
+      // Animate confidence bar after view transition
+      setTimeout(() => {
+        document.getElementById('conf-fill').style.width = conf + '%';
+      }, 500);
+
+      // Reset predict button
+      const btn = document.getElementById('btn-predict');
+      btn.disabled = false;
+      document.getElementById('btn-predict-text').textContent = 'Predict & Analyze';
+    }
+
+    // ─── GO BACK TO DASHBOARD ──────────────────────────────────
+    function goToDashboard() {
+      showView('view-dashboard');
+    }
+
+    // ─── INIT ──────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      showView('view-auth');
+    });
+
+    // Responsive: stack results grid on mobile
+    function updateResultsGrid() {
+      const grid = document.getElementById('results-top-grid');
+      if (!grid) return;
+      grid.style.gridTemplateColumns = window.innerWidth < 660 ? '1fr' : '1fr 1fr';
+    }
+    window.addEventListener('resize', updateResultsGrid);
+    updateResultsGrid();
+  </script>
+  <script src="/static/api_hook.js"></script>
+</body>
+
+</html>

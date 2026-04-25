@@ -84,10 +84,10 @@ def create_user(username: str, email: str, password: str) -> bool:
 
 def validate_user(username: str, password: str) -> tuple[bool, str]:
     """
-    Validate a user's credentials against the database.
+    Validate a user's credentials against the database using username or email.
 
     Args:
-        username: Username to validate.
+        username: Username or email to validate.
         password: Password to validate.
 
     Returns:
@@ -102,12 +102,12 @@ def validate_user(username: str, password: str) -> tuple[bool, str]:
             return False, username
 
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, username))
         user = cursor.fetchone()
         conn.close()
 
         if user and user["password"] == password:
-            return True, username
+            return True, user["username"]
         return False, username
     except sqlite3.Error as e:
         print(f"Database error during validation: {e}")

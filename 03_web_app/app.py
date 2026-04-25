@@ -37,32 +37,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.route("/")
 def index():
-    """Serve the single-page application frontend and dynamically inject API hooks."""
-    import json
-    path = Path(app.root_path) / "templates" / "Medicinal Leaf Classifier _Standalone_.html"
-    try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read()
-        
-        start_str = '<script type="__bundler/template">'
-        start_idx = content.find(start_str)
-        if start_idx != -1:
-            start_idx += len(start_str)
-            end_idx = content.find('</script>', start_idx)
-            template_json = content[start_idx:end_idx].strip()
-            
-            # Unpack the HTML
-            html = json.loads(template_json)
-            
-            # Inject our API logic connecting the standalone UI to the Flask backend
-            api_logic = '<script src="/static/api_hook.js"></script>'
-            html = html.replace('</body>', api_logic + '</body>')
-            return html
-            
-    except Exception as e:
-        print(f"Error serving SPA: {e}")
-        
-    return render_template("Medicinal Leaf Classifier _Standalone_.html")
+    """Serve the single-page application frontend."""
+    return render_template("app_ui.html")
 
 
 @app.route("/api/login", methods=["POST"])
@@ -77,7 +53,7 @@ def api_login():
 
     is_valid, user_name_db = validate_user(username, password)
     if is_valid:
-        session["user"] = username
+        session["user"] = user_name_db
         return jsonify({"status": "success", "message": "Logged in successfully", "user": user_name_db})
     else:
         return jsonify({"status": "error", "message": "Invalid credentials"}), 401
@@ -124,23 +100,20 @@ def api_predict():
     f.save(filepath)
 
     try:
-        # Get raw prediction results
-        (
-            pred_class,
-            pred_confidence,
-            seg_class,
-            seg_confidence,
-            confidence_message,
-        ) = predict_leaf(str(filepath))
+        # Get prediction — returns (class_name, confidence) or (LOW_CONFIDENCE_MESSAGE, conf)
+        pred_class, pred_confidence = predict_leaf(str(filepath))
 
-        # Basic mock data for plant information since it's not defined in prediction.py
-        # Real application would fetch this from a database based on pred_class
+        # Determine if this is a low-confidence result
+        from config import LOW_CONFIDENCE_MESSAGE
+        is_low_confidence = pred_class == LOW_CONFIDENCE_MESSAGE
+
+        # Plant information lookup
         plant_info_db = {
             "Tulsi": {
                 "botanical": "Ocimum tenuiflorum",
-                "uses": "Used for treating colds, flu, and asthma.",
-                "side_effects": "May cause nausea or diarrhea in high dosages.",
-                "remedies": "Chew raw leaves or brew into a tea.",
+                "uses": "Used for treating colds, flu, and asthma. Sacred in Ayurveda.",
+                "side_effects": "May cause nausea or diarrhea in high dosages. Avoid before surgery.",
+                "remedies": "Chew raw leaves or brew into a tea with ginger and honey.",
             },
             "Mint": {
                 "botanical": "Mentha",
@@ -148,7 +121,24 @@ def api_predict():
                 "side_effects": "Heartburn, allergic reactions (rare).",
                 "remedies": "Crush leaves and inhale, or brew tea.",
             },
-            # Default info for testing
+            "Neem": {
+                "botanical": "Azadirachta indica",
+                "uses": "Antibacterial, antifungal. Used for skin conditions and dental care.",
+                "side_effects": "Toxic in large doses. Not for pregnant women.",
+                "remedies": "Boil leaves and use water for bathing skin.",
+            },
+            "Coriender": {
+                "botanical": "Coriandrum sativum",
+                "uses": "Digestive aid, anti-inflammatory, lowers blood sugar.",
+                "side_effects": "May cause allergic reactions in sensitive individuals.",
+                "remedies": "Brew seeds into tea for digestion. Use fresh leaves in food.",
+            },
+            "Aloe Vera": {
+                "botanical": "Aloe barbadensis miller",
+                "uses": "Treats burns, skin conditions, and digestive issues.",
+                "side_effects": "Oral consumption in high doses can cause diarrhea.",
+                "remedies": "Apply gel directly to skin for burns or irritation.",
+            },
             "default": {
                 "botanical": "Botanical Name Unknown",
                 "uses": "Information not available for this specific plant.",
@@ -164,12 +154,11 @@ def api_predict():
             "prediction": {
                 "plant_name": pred_class,
                 "confidence": float(pred_confidence),
-                "segmented_confidence": float(seg_confidence),
                 "botanical_name": info["botanical"],
                 "uses": info["uses"],
                 "side_effects": info["side_effects"],
                 "remedies": info["remedies"],
-                "warning": confidence_message if confidence_message else None
+                "warning": pred_class if is_low_confidence else None
             }
         })
 

@@ -3,6 +3,12 @@
  * Overrides the dummy UI functions to connect to the actual Flask API.
  */
 
+const _origShowUploadPreview = window.showUploadPreview;
+window.showUploadPreview = function (file) {
+    window.selectedFile = file;
+    if (_origShowUploadPreview) _origShowUploadPreview(file);
+};
+
 window.handleLogin = async function (e) {
     e.preventDefault();
     const btn = document.getElementById('btn-login');
