@@ -1,0 +1,312 @@
+# Comprehensive Testing & Analysis Report
+
+**Medicinal Leaf Classifier — Full Codebase Audit**
+**Date:** 2026-04-18 | **Test Environment:** Python 3.11.9, TensorFlow 2.21, Arch Linux
+
+---
+
+## Test Results Summary
+
+| Category | Count |
+|----------|-------|
+| ✅ PASS  | 54    |
+| ❌ FAIL  | 5     |
+| ⚠️ WARN  | 16    |
+| ℹ️ INFO  | 6     |
+
+---
+
+## 🔴 Critical Bugs (Will Produce Wrong Results)
+
+### 1. Validation Data Leakage in Training (CRITICAL — Training)
+
+**File:** [02_model_training/model_training.ipynb](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/02_model_training/model_training.ipynb) (Cell 30)
+
+```python
+# CURRENT CODE (BROKEN):
+train_data = data                                    # ← ALL data including validation!
+validation_data = data.take(num_validation_samples)  # ← A subset of data
+train_batches = train_data.map(format_image)...      # ← Trains on validation data too!
+```
+
+**Impact:** The model trains on validation data, making validation accuracy artificially inflated. Your validation metrics are **unreliable** — the model memorizes validation images rather than learning generalizable features. This is the **#1 cause** of your overfitting suspicion.
+
+```python
+# CORRECT FIX:
+validation_data = data.take(num_validation_samples)
+train_data = data.skip(num_validation_samples)       # ← Exclude validation data
+```
+
+---
+
+### 2. Double Normalization (CRITICAL — Training)
+
+**File:** [02_model_training/model_training.ipynb](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/02_model_training/model_training.ipynb) (Cells 20 + 30)
+
+```python
+# Cell 20: image_dataset_from_directory returns pixels in [0, 255]
+data = tf.keras.utils.image_dataset_from_directory(...)
+
+# Cell 30: format_image normalizes AGAIN to [0, 1]
+def format_image(image, label):
+    image = tf.image.resize(image, (IMAGE_RES, IMAGE_RES)) / 255.0  # ← WRONG
+    return image, label
+```
+
+**Impact:** MobileNetV2 with `preprocess_input` expects values in **[-1, 1]**, not [0, 1]. The `/255.0` normalization:
+- Maps pixel values to [0, 1] instead of [-1, 1]
+- Cripples the pretrained ImageNet feature extraction
+- Forces the model to learn new feature scales instead of leveraging transfer learning
+
+```python
+# CORRECT FIX:
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+
+def format_image(image, label):
+    image = tf.image.resize(image, (IMAGE_RES, IMAGE_RES))
+    image = preprocess_input(image)  # Normalizes to [-1, 1] correctly
+    return image, label
+```
+
+---
+
+### 3. Augmentation Contaminates Source Dataset (CRITICAL — Data)
+
+**File:** [01_data_augmentation/augmentation.ipynb](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/01_data_augmentation/augmentation.ipynb) (Cell 3)
+
+```python
+# CURRENT CODE (BROKEN):
+for batch in datagen.flow(x, batch_size=1, save_to_dir=class_dir, ...)
+#                                          ^^^^^^^^^^^
+# Saves augmented images INTO the SAME directory as original images
+```
+
+**Evidence:** Found **4,430 augmented files** (prefixed `aug_`) inside `Medicinal_Leaves/` source directories.
+
+**Impact:**
+- Original dataset is permanently contaminated — you can't tell which images are real vs. synthetic
+- If you re-run augmentation, it will generate images *from augmented images*, creating inception-level synthetic artifacts
+- Model trains on synthetic-from-synthetic images, degrading quality
+
+```python
+# CORRECT FIX:
+output_dir = os.path.join('./result', class_name)
+os.makedirs(output_dir, exist_ok=True)
+# Copy originals + generate augmented into output_dir
+```
+
+---
+
+## 🟡 Bugs That Don't Break Functionality (But Are Bad Code)
+
+### 4. Global Variable Misuse in Augmentation
+
+**File:** [01_data_augmentation/augmentation.ipynb](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/01_data_augmentation/augmentation.ipynb) (Cell 3)
+
+```python
+image_list = ""  # ← Initialized as empty string at module level
+
+def augment_images_from_random_file(class_dir, num_samples=5):
+    image_files = [f for f in image_list if ...]  # ← Reads GLOBAL variable
+    # Should be: image_files = [f for f in os.listdir(class_dir) if ...]
+```
+
+The function depends on a global variable that gets overwritten in the loop below. This is fragile — if the function is ever called out of order or independently, it will silently use stale data.
+
+---
+
+### 5. Augmentation Overshoot
+
+**File:** [01_data_augmentation/augmentation.ipynb](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/01_data_augmentation/augmentation.ipynb) (Cell 3)
+
+```python
+while images_needed > 0:
+    augment_images_from_random_file(class_dir, num_samples=5)
+    images_needed -= 5  # Always decrements by 5, even if only 2 were needed
+```
+
+If a class needs 502 images and has 500, it generates 5 extra (target was 2). Minor but leads to class counts of 505, 503, etc. instead of exactly 500.
+
+---
+
+### 6. Model File Naming Confusion
+
+Model files are named `model_inceptionv2_*.h5` but the architecture is **MobileNetV2**, not InceptionV2/V3. Code comments also reference "InceptionV3 input shape" while using MobileNetV2.
+
+---
+
+### 7. Plaintext Password Storage (Security)
+
+**File:** [03_web_app/database.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/database.py)
+
+Passwords are stored as plaintext in SQLite. Any database leak exposes all user passwords directly.
+
+```python
+# CURRENT: Direct storage
+cursor.execute("INSERT INTO users ... VALUES (?, ?, ?, ?)", (username, email, password, ...))
+
+# SHOULD BE: Hashed with bcrypt
+import bcrypt
+hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+```
+
+---
+
+### 8. Hardcoded Flask Secret Key
+
+**File:** [03_web_app/config.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/config.py)
+
+```python
+SECRET_KEY = "supersecretkey"  # Anyone who reads the source can forge sessions
+```
+
+Should use `os.environ.get("SECRET_KEY")` or `secrets.token_hex(32)`.
+
+---
+
+### 9. No CSRF Protection on Forms
+
+POST endpoints (`/login`, `/add_user`, `/upload`) have no CSRF token validation. An attacker could craft a form that submits to your endpoints from any website.
+
+---
+
+## 🟢 What Was Actually Good
+
+### ✅ Flask App Architecture (Post-Refactor)
+- Clean separation: [config.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/config.py), [database.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/database.py), [prediction.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/prediction.py), [app.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/app.py)
+- All routes properly return correct HTTP codes (200, 302)
+- Auth redirect works correctly (prediction page requires login)
+- Upload validation returns proper JSON errors
+- All 7 Flask route tests passed
+
+### ✅ Database Module
+- Connection management works correctly
+- [create_user](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/database.py#52-83) rejects duplicates ✅
+- [validate_user](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/database.py#85-115) correctly accepts valid creds and rejects invalid/wrong/nonexistent ✅
+- [get_user_id](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/database.py#117-141) returns correct IDs and None for nonexistent ✅
+- All 7 database tests passed
+
+### ✅ HSV Leaf Segmentation
+- Produces correct output shape: [(1, 224, 224, 3)](file:///tmp/test_suite.py#23-27) ✅
+- Value range: `[0.000, 0.937]` (normalized) ✅
+- Mask ratio: **86.83%** masked, **13.17%** retained — appropriate for leaf isolation
+- HSV bounds [(30, 40, 40) → (90, 255, 255)](file:///tmp/test_suite.py#23-27) are reasonable for green leaf detection
+
+### ✅ Image Preprocessing
+- Correct output shape: [(1, 224, 224, 3)](file:///tmp/test_suite.py#23-27) ✅
+- Correct value range: `[0.000, 1.000]` ✅
+- Uses `tf.expand_dims` properly for batch dimension
+
+### ✅ Dual-Model Prediction Design
+- Running both raw and segmented predictions and comparing confidence is a smart approach
+- Low-confidence thresholds provide useful fallback messaging
+
+### ✅ Augmentation Parameters
+- `rotation_range=30°` — reasonable for leaf images (leaves can be at various angles)
+- `zoom_range=0.2` — adds scale variation without losing leaf features
+- `horizontal_flip=True` — leaves are symmetric, this is correct
+- `fill_mode='nearest'` — prevents black borders from rotation
+
+### ✅ Jinja2 Template Inheritance
+- [base.html](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/templates/base.html) properly shares nav/header/footer across all pages
+- Clean block structure: `{% block title %}`, `{% block content %}`, `{% block scripts %}`
+
+---
+
+## 📈 Improvements & Suggestions
+
+### Training Pipeline (Highest Priority)
+
+| Issue | Fix |
+|-------|-----|
+| No train/val split | Use `data.skip(N)` for training |
+| Double normalization | Use `preprocess_input()` |
+| No Dropout | Add `Dropout(0.3)` before final Dense |
+| No EarlyStopping | Add `EarlyStopping(patience=5)` |
+| No LR scheduling | Add `ReduceLROnPlateau(patience=3)` |
+| No runtime augmentation | Add `RandomFlip`, `RandomRotation` layers |
+| Frozen base forever | Unfreeze top 30 layers after initial training |
+| Only 10 epochs | Use 50 epochs with EarlyStopping |
+
+### Data Pipeline
+
+| Issue | Fix |
+|-------|-----|
+| Augmented data in source dir | Clean originals, save augmentations to `result/` |
+| No `result/` directory | Fix augmentation notebook to create it |
+| Global variable misuse | Make `image_list` a local variable inside function |
+
+### Security
+
+| Issue | Fix |
+|-------|-----|
+| Plaintext passwords | Use `bcrypt.hashpw()` |
+| Hardcoded secret key | Use `os.environ["SECRET_KEY"]` |
+| No CSRF | Add Flask-WTF CSRF protection |
+
+### Prediction Module
+
+| Issue | Fix |
+|-------|-----|
+| Model naming | Rename [.h5](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20M3/model/model_inceptionv2_withaug500.h5) files from `inceptionv2` to `mobilenetv2` |
+| Normalization mismatch | [prediction.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/03_web_app/prediction.py) normalizes to [0,1] but model was trained on [0,1] too (due to the training bug), so it's "consistent" right now. When you fix training, also fix prediction to use `preprocess_input()` |
+
+---
+
+## 🧪 Model Overfitting Analysis
+
+> [!CAUTION]
+> **Verdict: The model is almost certainly overfitting**, but not for the reason you might think.
+
+### Evidence
+
+1. **Validation data leakage** — The validation set is a subset of the training set. This means:
+   - Training accuracy ≈ Validation accuracy (because they share data)
+   - Test accuracy (on truly unseen data) would be significantly lower
+   - The "good" validation metrics are an illusion
+
+2. **No regularization** — No Dropout, no L2 regularization, no data augmentation at training time. With a frozen base model and only a Dense(13) head, the model has **~16,653 trainable parameters** (1280 × 13 + 13). This is relatively few, but with a small dataset and data leakage, overfitting is still likely.
+
+3. **Static augmentation only** — Pre-generated augmentations are static. The model sees the same augmented images every epoch, essentially memorizing them. Runtime augmentation ensures each epoch sees slightly different transforms, acting as regularization.
+
+4. **Wrong normalization** — The model receives inputs in [0, 1] but MobileNetV2's pretrained weights expect [-1, 1]. The pretrained features are partially unusable, forcing the small head layer to compensate, which increases overfitting risk.
+
+### Why This Matters
+
+Your current model appears to work in demo scenarios but will likely fail on:
+- Images taken with different cameras/lighting
+- Images at different angles or backgrounds
+- Images with multiple leaves or partial occlusion
+- Leaves in different seasons (color variation)
+
+---
+
+## 🏋️ Improved Training Script
+
+I've created an improved training notebook at:
+[model_training_v2.py](file:///home/tej/code/tobacco/Copy%20of%20Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/Integration%20of%20Traditional%20Knowledge%20and%20Modern%20Science/02_model_training/model_training_v2.py)
+
+### How to Run Training
+
+```bash
+# 1. Activate the Python 3.11 venv
+cd 01_data_augmentation && source venv/bin/activate
+
+# 2. First, clean the augmented images from the source dataset
+cd ../01_data_augmentation/Medicinal_Leaves
+find . -name "aug_*" -delete  # Remove the 4430 contaminating augmented files
+
+# 3. Re-run augmentation to generate clean result/ directory
+# (Or use the original Medicinal_Leaves if you have enough data)
+
+# 4. Run the improved training script
+cd ../../02_model_training
+python model_training_v2.py
+
+# Training will print epoch-by-epoch metrics.
+# It will auto-stop when validation loss stops improving.
+# Final model saved as: models/mobilenetv2_leaf_classifier.h5
+```
+
+> [!IMPORTANT]
+> Training will take time. Run it, observe the training/validation accuracy curves printed at the end, and share the results with me. If overfitting is confirmed (training acc >> validation acc), we'll add more regularization.
